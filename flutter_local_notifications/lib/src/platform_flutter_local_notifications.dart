@@ -28,12 +28,11 @@ import 'typedefs.dart';
 import 'types.dart';
 import 'tz_datetime_mapper.dart';
 
-const MethodChannel _channel =
-    MethodChannel('dexterous.com/flutter/local_notifications');
-
 /// An implementation of a local notifications platform using method channels.
 class MethodChannelFlutterLocalNotificationsPlugin
     extends FlutterLocalNotificationsPlatform {
+  final MethodChannel _channel = MethodChannel('dexterous.com/flutter/local_notifications');
+
   @override
   Future<void> cancel(int id) {
     validateId(id);

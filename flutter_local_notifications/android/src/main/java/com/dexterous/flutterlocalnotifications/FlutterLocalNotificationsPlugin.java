@@ -96,6 +96,8 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry;
 
+import android.util.Log;
+
 interface PermissionRequestListener {
   void complete(boolean granted);
 
@@ -184,21 +186,12 @@ public class FlutterLocalNotificationsPlugin
   private static final String NOTIFICATION_RESPONSE_TYPE = "notificationResponseType";
   static String NOTIFICATION_DETAILS = "notificationDetails";
   static Gson gson;
-  private MethodChannel channel;
+  private Map<FlutterPluginBinding, MethodChannel> channels = new HashMap<>();
   private Context applicationContext;
   private Activity mainActivity;
   static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 1;
   private PermissionRequestListener callback;
   private boolean permissionRequestInProgress = false;
-
-  @SuppressWarnings("deprecation")
-  public static void registerWith(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
-    FlutterLocalNotificationsPlugin plugin = new FlutterLocalNotificationsPlugin();
-    plugin.setActivity(registrar.activity());
-    registrar.addNewIntentListener(plugin);
-    registrar.addRequestPermissionsResultListener(plugin);
-    plugin.onAttachedToEngine(registrar.context(), registrar.messenger());
-  }
 
   static void rescheduleNotifications(Context context) {
     ArrayList<NotificationDetails> scheduledNotifications = loadScheduledNotifications(context);
@@ -1248,19 +1241,24 @@ public class FlutterLocalNotificationsPlugin
     this.mainActivity = flutterActivity;
   }
 
-  private void onAttachedToEngine(Context context, BinaryMessenger binaryMessenger) {
-    this.applicationContext = context;
-    this.channel = new MethodChannel(binaryMessenger, METHOD_CHANNEL);
-    this.channel.setMethodCallHandler(this);
-  }
-
   @Override
   public void onAttachedToEngine(FlutterPluginBinding binding) {
-    onAttachedToEngine(binding.getApplicationContext(), binding.getBinaryMessenger());
+    this.applicationContext = binding.getApplicationContext();
+
+    Log.e("HEY", "onAttachedToEngine");
+    MethodChannel channel = new MethodChannel(binding.getBinaryMessenger(), METHOD_CHANNEL);
+    channel.setMethodCallHandler(this);
+    this.channels.put(binding, channel);
   }
 
   @Override
-  public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {}
+  public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+    this.applicationContext = null;
+
+    Log.e("HEY", "onDetachedFromEngine");
+    MethodChannel channel = this.channels.remove(binding);
+    channel.setMethodCallHandler(null);
+  }
 
   @Override
   public void onAttachedToActivity(ActivityPluginBinding binding) {
@@ -1704,7 +1702,11 @@ public class FlutterLocalNotificationsPlugin
                   (int) notificationResponse.get(FlutterLocalNotificationsPlugin.NOTIFICATION_ID));
         }
       }
-      channel.invokeMethod("didReceiveNotificationResponse", notificationResponse);
+      Log.e("HEY", "sendNotificationPayloadMessage");
+      for (MethodChannel channel : channels.values()) {
+          Log.e("HEY", "got channel!");
+        channel.invokeMethod("didReceiveNotificationResponse", notificationResponse);
+      }
       return true;
     }
 
